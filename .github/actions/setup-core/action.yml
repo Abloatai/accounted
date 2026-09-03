@@ -10,7 +10,7 @@ runs:
   steps:
     - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
       with:
-        node-version: 20
+        node-version: 24
 
     # Restore-only, deliberately never `save`. A cache written from a
     # pull_request run is scoped to that PR's ref, so no other run can ever read
@@ -23,9 +23,9 @@ runs:
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/.npm
-        key: npm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+        key: npm-${{ runner.os }}-node24-${{ hashFiles('package-lock.json') }}
         restore-keys: |
-          npm-${{ runner.os }}-node20-
+          npm-${{ runner.os }}-node24-
 
     - name: Install dependencies
       shell: bash

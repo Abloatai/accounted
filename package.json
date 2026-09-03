@@ -27,9 +27,14 @@
     "test": "vitest run --project unit",
     "test:pg": "vitest run --project pg-real",
     "tools:pg:reset": "bash scripts/tool-pg/reset.sh",
-    "test:tools": "TOOL_PG_REST_URL=${TOOL_PG_REST_URL:-http://127.0.0.1:54330} vitest run --project tool-pg"
+    "test:tools": "TOOL_PG_REST_URL=${TOOL_PG_REST_URL:-http://127.0.0.1:54330} vitest run --project tool-pg",
+    "ablo:push": "ablo push --schema lib/agent/coordination/ablo/schema.ts"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   },
   "dependencies": {
+    "@abloatai/ablo": "0.61.0",
     "@ai-sdk/openai-compatible": "2.0.69",
     "@anthropic-ai/bedrock-sdk": "0.29.1",
     "@anthropic-ai/sdk": "0.95.0",
@@ -71,8 +76,8 @@
     "posthog-js": "^1.407.3",
     "posthog-node": "^5.46.1",
     "qrcode": "^1.5.4",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-hook-form": "^7.80.0",
     "react-markdown": "^10.1.0",
     "recharts": "^3.9.1",
@@ -88,10 +93,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@abloatai/cli": "0.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/js-yaml": "4.0.9",
     "@types/mailparser": "^3.4.6",
-    "@types/node": "^20",
+    "@types/node": "^24.13.3",
     "@types/nodemailer": "8.0.1",
     "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",

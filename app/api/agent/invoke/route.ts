@@ -12,6 +12,11 @@ import { guardSandbox } from '@/lib/sandbox/guard'
 import { requireCapability } from '@/lib/entitlements/has-capability'
 import { CAPABILITY } from '@/lib/entitlements/keys'
 import { getErrorMessage as getUserErrorMessage } from '@/lib/errors/get-error-message'
+import {
+  AgentCoordinationUnavailableError,
+  coordinateAgentTurn,
+  type AgentTurnLease,
+} from '@/lib/agent/coordination'
 
 // Make sure extensions are loaded: the chat loop dispatches against the
 // agent tool registry which is populated by the mcp-server extension at load.
@@ -141,8 +146,10 @@ export async function POST(request: Request) {
 
   // Resolve the conversation BEFORE any side effect below (the onboarding
   // intake stamp): a request that is about to be rejected must not write.
-  let conversationId = body.conversation_id ?? null
-  if (conversationId) {
+  const isFreshConversation = !body.conversation_id
+  const conversationId = body.conversation_id ?? crypto.randomUUID()
+  let conversationContextRef = body.context_ref ?? null
+  if (!isFreshConversation) {
     // A resumed conversation id comes straight from the client, so ownership
     // has to be proven here. RLS on agent_conversations/agent_messages is
     // COMPANY-scoped (migration 20260517204000), not user-scoped, so RLS alone
@@ -155,7 +162,7 @@ export async function POST(request: Request) {
     // A's ledger, tools and staged operations.
     const { data: conv } = await supabase
       .from('agent_conversations')
-      .select('id, user_id, company_id, intent_id')
+      .select('id, user_id, company_id, intent_id, context_ref')
       .eq('id', conversationId)
       .maybeSingle()
 
@@ -174,6 +181,36 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+
+    conversationContextRef = conv.context_ref
+  }
+
+  let coordinationLease: AgentTurnLease | null = null
+  try {
+    const coordination = await coordinateAgentTurn({
+      intentId: body.intent_id,
+      intentArgs: body.intent_args,
+      contextRef: conversationContextRef,
+      conversationId,
+      companyId,
+      userId: user.id,
+    })
+    if (coordination.outcome === 'contended') {
+      return NextResponse.json(
+        {
+          error: 'En annan assistent arbetar redan med den här transaktionen. Försök igen snart.',
+          code: 'agent_work_claimed',
+        },
+        { status: 409 },
+      )
+    }
+    if (coordination.outcome === 'acquired') coordinationLease = coordination.lease
+  } catch (error) {
+    const message =
+      error instanceof AgentCoordinationUnavailableError
+        ? 'Samordningen mellan assistenter är tillfälligt otillgänglig.'
+        : 'Kunde inte samordna assistentarbetet.'
+    return NextResponse.json({ error: message, code: 'coordination_unavailable' }, { status: 503 })
   }
 
   // onboarding.intake completion signal: once the user has actually
@@ -209,10 +246,11 @@ export async function POST(request: Request) {
   const firstName = profile?.full_name?.split(' ')[0] ?? null
 
   // Create the conversation row when this is a fresh thread.
-  if (!conversationId) {
+  if (isFreshConversation) {
     const { data: newConv, error: convErr } = await supabase
       .from('agent_conversations')
       .insert({
+        id: conversationId,
         company_id: companyId,
         user_id: user.id,
         intent_id: body.intent_id,
@@ -222,12 +260,12 @@ export async function POST(request: Request) {
       .select('id')
       .single()
     if (convErr || !newConv) {
+      await releaseCoordinationLease(coordinationLease)
       return NextResponse.json(
         { error: getUserErrorMessage(convErr) ?? 'Failed to create conversation' },
         { status: 500 },
       )
     }
-    conversationId = newConv.id as string
   }
 
   // Compute the user message to send to Anthropic. On the first turn (no
@@ -264,6 +302,7 @@ export async function POST(request: Request) {
       preloadedProfileSummary = profileSummary
       userMessageHidden = true
     } catch (err) {
+      await releaseCoordinationLease(coordinationLease)
       return NextResponse.json(
         {
           error:
@@ -320,6 +359,7 @@ export async function POST(request: Request) {
           message: friendlyModelError(err),
         })
       } finally {
+        await releaseCoordinationLease(coordinationLease)
         try {
           controller.close()
         } catch {
@@ -336,6 +376,15 @@ export async function POST(request: Request) {
       'X-Accel-Buffering': 'no',
     },
   })
+}
+
+async function releaseCoordinationLease(lease: AgentTurnLease | null): Promise<void> {
+  if (!lease) return
+  try {
+    await lease.release()
+  } catch {
+    // The short TTL is the final cleanup backstop when the network is unavailable.
+  }
 }
 
 async function loadProfileSummary(

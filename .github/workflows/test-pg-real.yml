@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 20
+          node-version: 24
       - name: Require pg-real coverage for trigger/RPC/RLS migrations
         env:
           PG_GATE_BASE: origin/${{ github.base_ref }}
@@ -172,7 +172,7 @@ jobs:
       # actions/cache/restore here, which is the only shape that gets hits.
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 20
+          node-version: 24
 
       - run: npm ci
 
@@ -237,7 +237,7 @@ jobs:
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 20
+          node-version: 24
 
       - run: npm ci
 

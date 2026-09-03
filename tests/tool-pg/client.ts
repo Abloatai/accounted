@@ -62,14 +62,12 @@ export function signServiceRoleJwt(secret = TOOL_PG_JWT_SECRET): string {
  */
 /**
  * `createClient` eagerly constructs a RealtimeClient, which resolves a
- * WebSocket implementation and throws "native WebSocket not found" on Node 20.
- * CI runs Node 20; local machines may not, which is exactly the kind of
- * difference that turns into a green local run and a red CI one.
+ * WebSocket implementation. The test supplies an inert implementation so it
+ * never depends on runtime globals that are unrelated to the query grammar.
  *
  * Nothing here subscribes to realtime, and RealtimeClient only RESOLVES the
  * constructor rather than instantiating it, so handing it an inert class is
- * enough. Bumping the job to Node 22 would work too, but it would make this the
- * only job in the repo on a different runtime for a feature it never uses.
+ * enough.
  */
 class UnusedRealtimeTransport {
   constructor() {

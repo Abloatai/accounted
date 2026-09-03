@@ -120,7 +120,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         if: steps.select.outputs.run == 'true'
         with:
-          node-version: 22
+          node-version: 24
           # Writes an .npmrc that reads the auth token from NODE_AUTH_TOKEN.
           registry-url: https://registry.npmjs.org
 

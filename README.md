@@ -52,7 +52,7 @@ You need a Supabase project and must apply the database migrations before first 
 
 ## Development Setup
 
-Prerequisites: Node.js 20 or newer (CI runs Node 20; the Docker image ships Node 22), a Supabase project.
+Prerequisites: Node.js 24 or newer, a Supabase project.
 
 ```bash
 npm install
