@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     if (coordination.outcome === 'contended') {
       return NextResponse.json(
         {
-          error: 'En annan assistent arbetar redan med den här transaktionen. Försök igen snart.',
+          error: 'En annan assistent arbetar redan med samma konversation eller underlag.',
           code: 'agent_work_claimed',
         },
         { status: 409 },

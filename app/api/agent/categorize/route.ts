@@ -11,6 +11,11 @@ import { gatherUnderlag } from '@/lib/agent/categorize/underlag'
 import { selectAccount } from '@/lib/agent/categorize/select-account'
 import { getErrorMessage as getUserErrorMessage } from '@/lib/errors/get-error-message'
 import type { EntityType, Transaction } from '@/types'
+import {
+  AgentCoordinationUnavailableError,
+  coordinateAgentWork,
+  releaseAgentWorkLease,
+} from '@/lib/agent/coordination'
 
 /**
  * POST /api/agent/categorize: a provider-agnostic booking proposal for one
@@ -82,50 +87,85 @@ export const POST = withRouteContext(
       )
     }
 
-    const { data: tx } = await supabase
-      .from('transactions')
-      .select('id, merchant_name, description, original_description, amount, date, currency, category, is_business, document_id')
-      .eq('id', parsed.data.transaction_id)
-      .eq('company_id', companyId)
-      .maybeSingle()
-    if (!tx) return NextResponse.json({ error: 'Transaktionen hittades inte.' }, { status: 404 })
-
-    const [{ data: company }, { data: settings }] = await Promise.all([
-      supabase.from('companies').select('entity_type').eq('id', companyId).maybeSingle(),
-      supabase.from('company_settings').select('vat_registered').eq('company_id', companyId).maybeSingle(),
-    ])
+    let coordination: Awaited<ReturnType<typeof coordinateAgentWork>>
+    try {
+      coordination = await coordinateAgentWork({
+        targets: [
+          {
+            scope: 'resource',
+            id: `transaction:${parsed.data.transaction_id}`,
+            description: 'preparing an Accounted transaction categorization proposal',
+          },
+        ],
+        participantId: crypto.randomUUID(),
+        companyId,
+        userId: user.id,
+      })
+      if (coordination.outcome === 'contended') {
+        return NextResponse.json(
+          {
+            error: 'En annan assistent arbetar redan med den här transaktionen. Försök igen snart.',
+            code: 'agent_work_claimed',
+          },
+          { status: 409 },
+        )
+      }
+    } catch (error) {
+      const message =
+        error instanceof AgentCoordinationUnavailableError
+          ? 'Samordningen mellan assistenter är tillfälligt otillgänglig.'
+          : 'Kunde inte samordna assistentarbetet.'
+      return NextResponse.json({ error: message, code: 'coordination_unavailable' }, { status: 503 })
+    }
 
     try {
-      // Gather the matched receipt/invoice text when the caller didn't supply it:
-      // this is what lifts the cold-start case — the model reads the actual
-      // supplier + line items, not just the bank line. Best-effort; '' if none.
-      const underlag =
-        parsed.data.underlag ??
-        (await gatherUnderlag(
-          supabase,
-          companyId,
-          (tx as Transaction).id,
-          (tx as { document_id?: string | null }).document_id,
-        ))
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('id, merchant_name, description, original_description, amount, date, currency, category, is_business, document_id')
+        .eq('id', parsed.data.transaction_id)
+        .eq('company_id', companyId)
+        .maybeSingle()
+      if (!tx) return NextResponse.json({ error: 'Transaktionen hittades inte.' }, { status: 404 })
 
-      const candidates = await gatherCandidates(supabase, companyId, tx as Transaction)
-      const selection = await selectAccount({
-        transaction: {
-          merchantName: (tx as Transaction).merchant_name,
-          description: (tx as Transaction).description,
-          amount: (tx as Transaction).amount,
-          date: (tx as Transaction).date,
-          currency: (tx as Transaction).currency,
-        },
-        underlag,
-        candidates,
-        entityType: ((company?.entity_type as EntityType | undefined) ?? 'enskild_firma'),
-        vatRegistered: settings?.vat_registered ?? false,
-        samples: parsed.data.samples,
-      })
-      return NextResponse.json({ data: { ...selection, candidates } })
-    } catch (err) {
-      return NextResponse.json({ error: getUserErrorMessage(err) }, { status: 500 })
+      const [{ data: company }, { data: settings }] = await Promise.all([
+        supabase.from('companies').select('entity_type').eq('id', companyId).maybeSingle(),
+        supabase.from('company_settings').select('vat_registered').eq('company_id', companyId).maybeSingle(),
+      ])
+
+      try {
+        // Gather the matched receipt/invoice text when the caller didn't supply it:
+        // this is what lifts the cold-start case — the model reads the actual
+        // supplier + line items, not just the bank line. Best-effort; '' if none.
+        const underlag =
+          parsed.data.underlag ??
+          (await gatherUnderlag(
+            supabase,
+            companyId,
+            (tx as Transaction).id,
+            (tx as { document_id?: string | null }).document_id,
+          ))
+
+        const candidates = await gatherCandidates(supabase, companyId, tx as Transaction)
+        const selection = await selectAccount({
+          transaction: {
+            merchantName: (tx as Transaction).merchant_name,
+            description: (tx as Transaction).description,
+            amount: (tx as Transaction).amount,
+            date: (tx as Transaction).date,
+            currency: (tx as Transaction).currency,
+          },
+          underlag,
+          candidates,
+          entityType: ((company?.entity_type as EntityType | undefined) ?? 'enskild_firma'),
+          vatRegistered: settings?.vat_registered ?? false,
+          samples: parsed.data.samples,
+        })
+        return NextResponse.json({ data: { ...selection, candidates } })
+      } catch (err) {
+        return NextResponse.json({ error: getUserErrorMessage(err) }, { status: 500 })
+      }
+    } finally {
+      await releaseAgentWorkLease(coordination)
     }
   },
 )

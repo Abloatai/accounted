@@ -18,6 +18,13 @@ import {
   persistAssistantTurn,
 } from '@/lib/agent/ask/persist'
 import { getErrorMessage as getUserErrorMessage } from '@/lib/errors/get-error-message'
+import {
+  AgentCoordinationUnavailableError,
+  coordinateAgentWork,
+  releaseAgentWorkLease,
+  type AgentWorkCoordination,
+  type AgentWorkTarget,
+} from '@/lib/agent/coordination'
 
 // The assistant answers over the read-only MCP tools, which are registered
 // into the agent tool registry by the mcp-server extension at load. Without
@@ -111,6 +118,13 @@ export async function POST(request: Request): Promise<Response> {
 
   // Stateless page-scoped ask: one answer, nothing written.
   if (parsed.data.persist !== true) {
+    const admission = await admitAskWork({
+      targets: targetsForAsk(null, parsed.data.context_ref),
+      participantId: crypto.randomUUID(),
+      companyId,
+      userId: user.id,
+    })
+    if (!admission.ok) return admission.response
     try {
       const result = await answerAssistantQuestion({
         supabase,
@@ -131,6 +145,8 @@ export async function POST(request: Request): Promise<Response> {
       }
       log.error('assistant ask failed', err, { companyId, persist: false })
       return NextResponse.json({ error: getUserErrorMessage(err) }, { status: 500 })
+    } finally {
+      await releaseAgentWorkLease(admission.coordination)
     }
   }
 
@@ -139,6 +155,19 @@ export async function POST(request: Request): Promise<Response> {
   // conversation id 404s without spending a request; the user turn is written
   // before the answer so a mid-call failure still leaves the question in the
   // thread (the user can retry), matching the streaming runtime's semantics.
+  const newConversationId = parsed.data.conversation_id ? null : crypto.randomUUID()
+  let coordination: AgentWorkCoordination | null = null
+  if (newConversationId) {
+    const admission = await admitAskWork({
+      targets: targetsForAsk(newConversationId, parsed.data.context_ref),
+      participantId: newConversationId,
+      companyId,
+      userId: user.id,
+    })
+    if (!admission.ok) return admission.response
+    coordination = admission.coordination
+  }
+
   try {
     const resolved = await resolveChatConversation(
       supabase,
@@ -147,11 +176,23 @@ export async function POST(request: Request): Promise<Response> {
       parsed.data.conversation_id,
       parsed.data.question,
       parsed.data.context_ref,
+      newConversationId ?? undefined,
     )
     if (!resolved.ok) {
       return NextResponse.json({ error: 'Konversationen hittades inte.' }, { status: 404 })
     }
     const { conversationId } = resolved
+
+    if (!coordination) {
+      const admission = await admitAskWork({
+        targets: targetsForAsk(conversationId, resolved.contextRef),
+        participantId: conversationId,
+        companyId,
+        userId: user.id,
+      })
+      if (!admission.ok) return admission.response
+      coordination = admission.coordination
+    }
 
     // A resumed thread carries its earlier turns into the model call; read
     // them BEFORE the new question is written so it is not sent twice. A
@@ -187,5 +228,68 @@ export async function POST(request: Request): Promise<Response> {
     }
     log.error('assistant ask failed', err, { companyId, persist: true })
     return NextResponse.json({ error: getUserErrorMessage(err) }, { status: 500 })
+  } finally {
+    if (coordination) await releaseAgentWorkLease(coordination)
+  }
+}
+
+function targetsForAsk(
+  conversationId: string | null,
+  contextRef: string | null | undefined,
+): AgentWorkTarget[] {
+  const targets: AgentWorkTarget[] = []
+  if (conversationId) {
+    targets.push({
+      scope: 'conversation',
+      id: conversationId,
+      description: `answering Accounted conversation ${conversationId}`,
+    })
+  }
+  if (contextRef) {
+    targets.push({
+      scope: 'resource',
+      id: contextRef,
+      description: `answering about Accounted resource ${contextRef}`,
+    })
+  }
+  return targets
+}
+
+async function admitAskWork(input: {
+  targets: AgentWorkTarget[]
+  participantId: string
+  companyId: string
+  userId: string
+}): Promise<
+  | { ok: true; coordination: AgentWorkCoordination }
+  | { ok: false; response: Response }
+> {
+  try {
+    const coordination = await coordinateAgentWork(input)
+    if (coordination.outcome === 'contended') {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          {
+            error: 'En annan assistent arbetar redan med samma konversation eller underlag.',
+            code: 'agent_work_claimed',
+          },
+          { status: 409 },
+        ),
+      }
+    }
+    return { ok: true, coordination }
+  } catch (error) {
+    const message =
+      error instanceof AgentCoordinationUnavailableError
+        ? 'Samordningen mellan assistenter är tillfälligt otillgänglig.'
+        : 'Kunde inte samordna assistentarbetet.'
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: message, code: 'coordination_unavailable' },
+        { status: 503 },
+      ),
+    }
   }
 }

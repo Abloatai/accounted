@@ -1,6 +1,24 @@
 export {
   coordinateAgentTurn,
+  resourceIdForTurn,
   transactionIdForTurn,
-} from './transaction-categorization'
-export { AgentCoordinationUnavailableError } from './ablo/client'
-export type { AgentTurnCoordination, AgentTurnLease } from './contract'
+} from './agent-turn'
+export {
+  AgentWorkContendedError,
+  coordinateAgentWork,
+  releaseAgentWorkLease,
+  runCoordinatedAgentWork,
+} from './work'
+export { agentWorkTargetsForTool, runCoordinatedToolCall } from './tool-call'
+export {
+  AgentCoordinationUnavailableError,
+  claimAgentWorkWithAblo,
+  isAgentCoordinationEnabled,
+} from './ablo/client'
+export type {
+  AgentTurnCoordination,
+  AgentTurnLease,
+  AgentWorkClaimInput,
+  AgentWorkCoordination,
+  AgentWorkTarget,
+} from './contract'

@@ -14,12 +14,18 @@ vi.mock('@abloatai/ablo/sessions', () => ({ default: mocks.sessions }))
 
 import {
   AgentCoordinationUnavailableError,
-  claimTransactionCategorizationWithAblo,
+  claimAgentWorkWithAblo,
 } from '../client'
 
 const input = {
-  transactionId: 'transaction-1',
-  conversationId: 'conversation-1',
+  targets: [
+    {
+      scope: 'resource' as const,
+      id: 'transaction:transaction-1',
+      description: 'categorizing a transaction',
+    },
+  ],
+  participantId: 'conversation-1',
   companyId: 'company-1',
   userId: 'user-1',
 }
@@ -32,7 +38,7 @@ beforeEach(() => {
   mocks.createSession.mockResolvedValue({ token: 'rk_test' })
   mocks.sessions.mockReturnValue({ create: mocks.createSession })
   mocks.ablo.mockReturnValue({
-    transactionCategorizations: { claim: mocks.claim },
+    agentWork: { claim: mocks.claim },
     dispose: mocks.dispose,
   })
 })
@@ -41,11 +47,11 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-describe('claimTransactionCategorizationWithAblo', () => {
+describe('claimAgentWorkWithAblo', () => {
   it('uses the SDK default base URL and a scoped agent session', async () => {
     vi.stubEnv('ABLO_API_KEY', 'sk_test')
 
-    const lease = await claimTransactionCategorizationWithAblo(input)
+    const lease = await claimAgentWorkWithAblo(input)
 
     expect(mocks.sessions).toHaveBeenCalledWith(
       expect.objectContaining({ apiKey: 'sk_test' }),
@@ -54,13 +60,13 @@ describe('claimTransactionCategorizationWithAblo', () => {
     expect(mocks.createSession).toHaveBeenCalledWith({
       agent: { id: 'conversation-1' },
       onBehalfOf: { user: { id: 'user-1' } },
-      can: { transactionCategorizations: ['read', 'update'] },
+      can: { agentWork: ['read', 'update'] },
       ttlSeconds: 360,
       userMeta: { companyId: 'company-1' },
     })
     expect(mocks.ablo.mock.calls[0][0]).not.toHaveProperty('baseURL')
-    expect(mocks.claim).toHaveBeenCalledWith('company-1:transaction-1', {
-      description: 'preparing an Accounted bank transaction categorization',
+    expect(mocks.claim).toHaveBeenCalledWith('company-1:resource:transaction:transaction-1', {
+      description: 'categorizing a transaction',
       contention: { mode: 'skip' },
       ttl: '30s',
       heartbeat: { every: '10s' },
@@ -74,7 +80,7 @@ describe('claimTransactionCategorizationWithAblo', () => {
   it('fails before creating a client when the project key is missing', async () => {
     vi.stubEnv('ABLO_API_KEY', '')
 
-    await expect(claimTransactionCategorizationWithAblo(input)).rejects.toBeInstanceOf(
+    await expect(claimAgentWorkWithAblo(input)).rejects.toBeInstanceOf(
       AgentCoordinationUnavailableError,
     )
     expect(mocks.sessions).not.toHaveBeenCalled()
@@ -84,7 +90,45 @@ describe('claimTransactionCategorizationWithAblo', () => {
     vi.stubEnv('ABLO_API_KEY', 'sk_test')
     mocks.claim.mockResolvedValue(null)
 
-    await expect(claimTransactionCategorizationWithAblo(input)).resolves.toBeNull()
+    await expect(claimAgentWorkWithAblo(input)).resolves.toBeNull()
+    expect(mocks.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('releases earlier claims when a later target is contended', async () => {
+    vi.stubEnv('ABLO_API_KEY', 'sk_test')
+    mocks.claim
+      .mockResolvedValueOnce({ release: mocks.release })
+      .mockResolvedValueOnce(null)
+
+    await expect(claimAgentWorkWithAblo({
+      ...input,
+      targets: [
+        ...input.targets,
+        { scope: 'resource', id: 'invoice:invoice-1', description: 'updating an invoice' },
+      ],
+    })).resolves.toBeNull()
+    expect(mocks.release).toHaveBeenCalledOnce()
+    expect(mocks.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('makes lease release idempotent', async () => {
+    vi.stubEnv('ABLO_API_KEY', 'sk_test')
+
+    const lease = await claimAgentWorkWithAblo(input)
+    await lease?.release()
+    await lease?.release()
+
+    expect(mocks.release).toHaveBeenCalledOnce()
+    expect(mocks.dispose).toHaveBeenCalledOnce()
+  })
+
+  it('disposes the client when claiming fails', async () => {
+    vi.stubEnv('ABLO_API_KEY', 'sk_test')
+    mocks.claim.mockRejectedValue(new Error('network down'))
+
+    await expect(claimAgentWorkWithAblo(input)).rejects.toBeInstanceOf(
+      AgentCoordinationUnavailableError,
+    )
     expect(mocks.dispose).toHaveBeenCalledOnce()
   })
 })

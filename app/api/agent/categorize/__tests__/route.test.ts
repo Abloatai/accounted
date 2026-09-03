@@ -22,6 +22,16 @@ const gatherUnderlag = vi.fn()
 vi.mock('@/lib/agent/categorize/underlag', () => ({ gatherUnderlag: (...a: unknown[]) => gatherUnderlag(...a) }))
 const selectAccount = vi.fn()
 vi.mock('@/lib/agent/categorize/select-account', () => ({ selectAccount: (...a: unknown[]) => selectAccount(...a) }))
+const coordinateAgentWork = vi.fn()
+const releaseAgentWorkLease = vi.fn()
+vi.mock('@/lib/agent/coordination', () => {
+  class AgentCoordinationUnavailableError extends Error {}
+  return {
+    AgentCoordinationUnavailableError,
+    coordinateAgentWork: (...args: unknown[]) => coordinateAgentWork(...args),
+    releaseAgentWorkLease: (...args: unknown[]) => releaseAgentWorkLease(...args),
+  }
+})
 
 import { POST } from '../route'
 
@@ -63,6 +73,8 @@ beforeEach(() => {
     confidence: 0.86, modelConfidence: 'high', agreement: 1, reasoning: 'r',
     choice: { kind: 'candidate', account: '5410' }, model: 'qwen3.8', fromCandidate: true,
   })
+  coordinateAgentWork.mockResolvedValue({ outcome: 'disabled' })
+  releaseAgentWorkLease.mockResolvedValue(undefined)
 })
 
 describe('POST /api/agent/categorize', () => {
@@ -136,5 +148,30 @@ describe('POST /api/agent/categorize', () => {
     expect(selectAccount).toHaveBeenCalledWith(
       expect.objectContaining({ underlag: 'Kvitto: Biltema, totalt 499 SEK.' }),
     )
+  })
+
+  it('returns 409 before reading the transaction when its resource is claimed', async () => {
+    coordinateAgentWork.mockResolvedValue({ outcome: 'contended' })
+
+    const res = await POST(
+      createMockRequest('/x', { method: 'POST', body: body() }),
+      createMockRouteParams({}),
+    )
+
+    expect(res.status).toBe(409)
+    expect(selectAccount).not.toHaveBeenCalled()
+  })
+
+  it('releases coordination after returning the proposal', async () => {
+    const coordination = { outcome: 'acquired', lease: { release: vi.fn() } }
+    coordinateAgentWork.mockResolvedValue(coordination)
+
+    const res = await POST(
+      createMockRequest('/x', { method: 'POST', body: body() }),
+      createMockRouteParams({}),
+    )
+
+    expect(res.status).toBe(200)
+    expect(releaseAgentWorkLease).toHaveBeenCalledWith(coordination)
   })
 })

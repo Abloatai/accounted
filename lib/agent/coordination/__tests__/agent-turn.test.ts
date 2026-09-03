@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   coordinateAgentTurn,
+  resourceIdForTurn,
   transactionIdForTurn,
-} from '../transaction-categorization'
+} from '../agent-turn'
 import type { AgentCoordinationDependencies } from '../contract'
 
 const input = {
@@ -34,6 +35,24 @@ describe('transactionIdForTurn', () => {
   })
 })
 
+describe('resourceIdForTurn', () => {
+  it('uses any persisted context reference', () => {
+    expect(resourceIdForTurn({ ...input, intentId: 'invoice.draft' })).toBe(
+      'transaction:transaction-from-context',
+    )
+  })
+
+  it('derives entity resources when no context reference was supplied', () => {
+    expect(
+      resourceIdForTurn({
+        intentId: 'supplier_invoice.review',
+        intentArgs: { supplier_invoice_id: 'supplier-invoice-1' },
+        contextRef: null,
+      }),
+    ).toBe('supplier_invoice:supplier-invoice-1')
+  })
+})
+
 describe('coordinateAgentTurn', () => {
   it('does not contact Ablo when coordination is disabled', async () => {
     vi.stubEnv('ABLO_COORDINATION_ENABLED', 'false')
@@ -42,7 +61,7 @@ describe('coordinateAgentTurn', () => {
     await expect(coordinateAgentTurn(input, dependencies)).resolves.toEqual({
       outcome: 'disabled',
     })
-    expect(dependencies.claimTransactionCategorization).not.toHaveBeenCalled()
+    expect(dependencies.claimAgentWork).not.toHaveBeenCalled()
   })
 
   it('returns a held lease after acquiring the transaction claim', async () => {
@@ -54,9 +73,20 @@ describe('coordinateAgentTurn', () => {
       outcome: 'acquired',
       lease,
     })
-    expect(dependencies.claimTransactionCategorization).toHaveBeenCalledWith({
-      transactionId: 'transaction-1',
-      conversationId: 'conversation-1',
+    expect(dependencies.claimAgentWork).toHaveBeenCalledWith({
+      targets: [
+        {
+          scope: 'conversation',
+          id: 'conversation-1',
+          description: 'running Accounted agent conversation conversation-1',
+        },
+        {
+          scope: 'resource',
+          id: 'transaction:transaction-from-context',
+          description: 'working on Accounted resource transaction:transaction-from-context',
+        },
+      ],
+      participantId: 'conversation-1',
       companyId: 'company-1',
       userId: 'user-1',
     })
@@ -73,7 +103,7 @@ describe('coordinateAgentTurn', () => {
 })
 
 function dependenciesWithClaim(
-  claim: AgentCoordinationDependencies['claimTransactionCategorization'],
+  claim: AgentCoordinationDependencies['claimAgentWork'],
 ): AgentCoordinationDependencies {
-  return { claimTransactionCategorization: claim }
+  return { claimAgentWork: claim }
 }

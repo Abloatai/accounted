@@ -51,7 +51,7 @@ function textBlocks(text: string): { type: 'text'; text: string }[] {
 }
 
 export type ResolveConversationResult =
-  | { ok: true; conversationId: string; created: boolean }
+  | { ok: true; conversationId: string; created: boolean; contextRef: string | null }
   // The client passed a conversation id that isn't this user's general.help
   // thread in this company. Same outcome as "doesn't exist": a 404, never a
   // 403 that would confirm someone else's id is real.
@@ -72,11 +72,12 @@ export async function resolveChatConversation(
   conversationId: string | null | undefined,
   firstQuestion: string,
   contextRef?: string | null,
+  newConversationId?: string,
 ): Promise<ResolveConversationResult> {
   if (conversationId) {
     const { data: conv } = await supabase
       .from('agent_conversations')
-      .select('id, user_id, company_id, intent_id')
+      .select('id, user_id, company_id, intent_id, context_ref')
       .eq('id', conversationId)
       .maybeSingle()
     if (
@@ -87,12 +88,18 @@ export async function resolveChatConversation(
     ) {
       return { ok: false, reason: 'not_found' }
     }
-    return { ok: true, conversationId: conv.id as string, created: false }
+    return {
+      ok: true,
+      conversationId: conv.id as string,
+      created: false,
+      contextRef: (conv.context_ref as string | null) ?? null,
+    }
   }
 
   const { data: created, error } = await supabase
     .from('agent_conversations')
     .insert({
+      ...(newConversationId ? { id: newConversationId } : {}),
       company_id: companyId,
       user_id: userId,
       intent_id: CHAT_INTENT_ID,
@@ -102,7 +109,12 @@ export async function resolveChatConversation(
     .select('id')
     .single()
   if (error || !created) throw error ?? new Error('Failed to create conversation')
-  return { ok: true, conversationId: created.id as string, created: true }
+  return {
+    ok: true,
+    conversationId: created.id as string,
+    created: true,
+    contextRef: contextRef ?? null,
+  }
 }
 
 /** Append the user's question as a persisted turn (append-only). */

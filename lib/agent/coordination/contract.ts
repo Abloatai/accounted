@@ -17,15 +17,25 @@ export type AgentTurnCoordination =
   | { readonly outcome: 'contended' }
   | { readonly outcome: 'acquired'; readonly lease: AgentTurnLease }
 
-export interface TransactionCategorizationClaimInput {
-  readonly transactionId: string
-  readonly conversationId: string
+export interface AgentWorkTarget {
+  readonly scope: 'conversation' | 'resource' | 'tool'
+  readonly id: string
+  readonly description: string
+}
+
+export interface AgentWorkClaimInput {
+  readonly targets: readonly AgentWorkTarget[]
+  readonly participantId: string
   readonly companyId: string
   readonly userId: string
 }
 
+export type AgentWorkCoordination =
+  | { readonly outcome: 'not_applicable' }
+  | { readonly outcome: 'disabled' }
+  | { readonly outcome: 'contended' }
+  | { readonly outcome: 'acquired'; readonly lease: AgentTurnLease }
+
 export interface AgentCoordinationDependencies {
-  claimTransactionCategorization(
-    input: TransactionCategorizationClaimInput,
-  ): Promise<AgentTurnLease | null>
+  claimAgentWork(input: AgentWorkClaimInput): Promise<AgentTurnLease | null>
 }
