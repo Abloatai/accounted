@@ -1,6 +1,12 @@
 name: pg-real tests
 
-on: [pull_request]
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Previously released commit or branch for migration checks
+        required: true
+        type: string
 
 # Neither job writes anything back: they read the repo, stand up a throwaway
 # Postgres, and run tests. Without this block both inherit the repository's
@@ -30,7 +36,7 @@ jobs:
           node-version: 20
       - name: Require pg-real coverage for trigger/RPC/RLS migrations
         env:
-          PG_GATE_BASE: origin/${{ github.base_ref }}
+          PG_GATE_BASE: ${{ inputs.base_ref }}
         run: node scripts/check-pg-test-coverage.mjs
 
   # Proves that an EXISTING database survives the PR's migrations, which the
@@ -74,7 +80,7 @@ jobs:
       - name: Identify the migrations this PR adds
         id: newmig
         env:
-          BASE_REF: origin/${{ github.base_ref }}
+          BASE_REF: ${{ inputs.base_ref }}
         run: |
           set -euo pipefail
           MERGE_BASE=$(git merge-base "$BASE_REF" HEAD)

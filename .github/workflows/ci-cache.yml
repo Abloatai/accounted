@@ -15,11 +15,6 @@ name: CI cache warm
 # it is replaced.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - package-lock.json
-      - package.json
   workflow_dispatch: {}
 
 concurrency:

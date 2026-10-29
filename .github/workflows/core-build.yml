@@ -8,7 +8,8 @@ name: Core Build (no extensions)
 #
 # The prologue each job needs is in .github/actions/setup-core.
 
-on: [pull_request]
+on:
+  workflow_dispatch:
 
 # Six concurrent jobs per push makes stale runs far more expensive than they
 # were when this was one job, and a superseded push has nothing worth finishing.

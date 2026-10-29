@@ -22,9 +22,6 @@ name: Build and Push Docker Image
 # cannot move what production pulls.
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*.*.*']
   workflow_dispatch: {}
 
 env:

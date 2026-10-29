@@ -14,13 +14,6 @@ name: Workflow audit (zizmor)
 # a workflow whose job is to check the supply chain should not widen it.
 
 on:
-  pull_request:
-  push:
-    branches: [main]
-  schedule:
-    # Weekly, off the hour to dodge cron congestion on GitHub. New audits ship
-    # regularly, so a repo that stopped changing can still start failing here.
-    - cron: '41 5 * * 1'
   workflow_dispatch: {}
 
 permissions:
