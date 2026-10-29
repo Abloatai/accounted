@@ -28,10 +28,6 @@ name: Publish MCP bridges to npm
 # before merging it.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/*/package.json'
   workflow_dispatch:
     inputs:
       package:

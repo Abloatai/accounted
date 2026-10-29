@@ -31,12 +31,6 @@ name: Scheduled Image Vulnerability Scan
 # NOTE: GitHub only runs `schedule` and `workflow_run` triggers from the default
 # branch, so both start firing once this is merged to main.
 on:
-  workflow_run:
-    workflows: ['Build and Push Docker Image']
-    types: [completed]
-  schedule:
-    # 06:17 UTC daily: off the hour to dodge cron congestion on GitHub.
-    - cron: '17 6 * * *'
   workflow_dispatch: {}
 
 env:
