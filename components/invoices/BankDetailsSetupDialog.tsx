@@ -172,6 +172,7 @@ export function BankDetailsSetupDialog({ open, onOpenChange, onComplete }: BankD
           <DialogTitle className="font-display text-xl tracking-tight">{t('title')}</DialogTitle>
           <DialogDescription>
             {t('description_prefix')}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
             <a href="/settings" className="underline underline-offset-2 hover:text-foreground">{t('settings_link')}</a>
             {t('description_suffix')}
           </DialogDescription>

@@ -260,6 +260,7 @@ export default function BankSyncNowButton() {
     ) : (
       <span className="text-xs text-muted-foreground">
         {t('bank_sync_upsell_subscription')}{' '}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
         <a href="/settings/billing" className="underline underline-offset-2">
           {t('bank_sync_upsell_upgrade')}
         </a>
