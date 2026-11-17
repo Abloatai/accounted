@@ -499,6 +499,7 @@ export default function SendInvoiceDialog({
             {!isSandbox && !canEmail && mode === 'email' && (
               <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-sm text-muted-foreground">
                 E-postutskick kräver ett abonnemang.{' '}
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
                 <a href="/settings/billing" className="underline underline-offset-2">
                   Uppgradera
                 </a>{' '}

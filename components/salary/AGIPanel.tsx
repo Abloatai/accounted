@@ -1054,6 +1054,7 @@ export function AGIPanel(props: AGIPanelProps) {
         {missingAgdScope && !readOnly && attn !== 'scope' && (
           <p className="text-xs text-muted-foreground">
             {t('missing_scope_title')}. {t('missing_scope_description')}{' '}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
             <a href="/settings/tax" className="underline underline-offset-2 hover:text-foreground">
               {t('open_settings')}
             </a>
@@ -1063,6 +1064,7 @@ export function AGIPanel(props: AGIPanelProps) {
           <p className="text-xs text-muted-foreground">
             <span className="text-foreground">{t('kvittens_scope_title')}.</span>{' '}
             {t('kvittens_scope_description')}{' '}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
             <a href="/settings/tax" className="underline underline-offset-2 hover:text-foreground">
               {t('open_settings')}
             </a>{' '}
