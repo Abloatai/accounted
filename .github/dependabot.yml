@@ -1,13 +1,31 @@
-# Security-updates-only posture: open-pull-requests-limit: 0 disables scheduled
-# version-bump PRs while keeping Dependabot security PRs, and `ignore` applies
-# to both kinds.
+# Dependabot: grouped security updates, grouped monthly version updates for
+# everything this repo ships.
+#
+# - Security updates open as soon as an alert appears, whatever the schedule.
+#   They are grouped per ecosystem and directory so one advisory wave is one
+#   PR. The repository setting "Dependabot security updates" turns them on;
+#   this file only shapes them.
+# - Version updates run monthly for what ships: the root npm app (hosted and
+#   self-hosted), the published image (Dockerfile) and the self-hosters' cron
+#   image (docker/cron.Dockerfile), the self-hosting compose files, the
+#   workflows and their composite action, and the Nix flake inputs. Minor and
+#   patch updates collapse into one PR per ecosystem; majors stay individual.
+# - `cooldown` waits a week after a release before proposing it, so a
+#   compromised or yanked version has time to be caught upstream. Security
+#   updates ignore it.
+# - The mcp-builder skill script gets security updates only:
+#   `open-pull-requests-limit: 0` disables version updates without affecting
+#   security updates, which have their own fixed limit of ten.
+# - `ignore` applies to both version and security updates.
+#
+# Reference:
+# https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 0
+      interval: monthly
     cooldown:
       default-days: 7
     ignore:
@@ -17,3 +35,76 @@ updates:
       # deliberate, verified change, never an automated PR.
       - dependency-name: "@anthropic-ai/bedrock-sdk"
         versions: [">=0.30.0"]
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      npm-minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /docker
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      docker-minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      docker-compose-minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup-core
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      actions-minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: nix
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      nix-flake-inputs:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  # Security updates only.
+  - package-ecosystem: pip
+    directory: /.claude/skills/mcp-builder/scripts
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    groups:
+      pip-security-other:
+        applies-to: security-updates
+        patterns: ["*"]
