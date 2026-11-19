@@ -47,9 +47,9 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
     const raw = headers?.['x-posthog-distinct-id']
     const distinctId = Array.isArray(raw) ? raw[0] : raw
 
-    posthog.captureException(err instanceof Error ? err : new Error(String(err)), distinctId, {
-      path: request.path,
-      method: request.method,
+    posthog.captureException(err instanceof Error ? err : new Error(String(err)), {
+      distinctId,
+      properties: { path: request.path, method: request.method },
     })
     // Vercel tears the function down per invocation: without the awaited
     // flush the enqueued event is silently dropped.

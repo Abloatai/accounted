@@ -47,11 +47,10 @@ export const postHogSink: ObservabilitySink = {
     try {
       const posthog = getPostHogServer()
       if (!posthog) return
-      posthog.captureException(
-        error instanceof Error ? error : new Error(String(error)),
-        distinctIdFrom(context),
-        toProperties(context)
-      )
+      posthog.captureException(error instanceof Error ? error : new Error(String(error)), {
+        distinctId: distinctIdFrom(context),
+        properties: toProperties(context),
+      })
     } catch {
       // Contract: must not throw.
     }

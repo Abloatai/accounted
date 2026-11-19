@@ -713,16 +713,16 @@ const PINNED_DEPS = [
   },
   {
     name: 'ai',
-    version: '6.0.259',
+    version: '7.0.177',
     reason:
       'Vercel AI SDK backs lib/ai/services/openai-compatible.ts (Tier 2 BYO endpoints). Major versions ' +
       'rename core APIs; upgrades are deliberate PRs with the provider test suite, never a silent bump.',
   },
   {
     name: '@ai-sdk/openai-compatible',
-    version: '2.0.69',
+    version: '3.0.93',
     reason:
-      'Paired with ai 6.x; the provider package follows its own major cadence and must move together with ' +
+      'Paired with ai 7.x; the provider package follows its own major cadence and must move together with ' +
       'the core pin in one reviewed change.',
   },
   {
