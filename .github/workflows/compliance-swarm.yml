@@ -10,17 +10,12 @@ name: "compliance: full swarm"
 #   - PRs labeled `compliance:full-audit`
 
 on:
-  schedule:
-    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       reason:
         description: 'Why are you running this manually?'
         required: false
         default: ''
-  pull_request:
-    types: [labeled]
-
 permissions:
   contents: read
   pull-requests: write
