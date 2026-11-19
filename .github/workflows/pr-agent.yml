@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: The PR Agent
         # Pinned to the v0.36.0 commit SHA (immutable): do not switch to @v0.36.0.
-        uses: The-PR-Agent/pr-agent@8e4d32e5497defd43c023a404f73560c62728961 # v0.39.0
+        uses: The-PR-Agent/pr-agent@e673a02076ce09a4726c3d0c3cc85780e59ca52b # v0.50.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -95,3 +95,5 @@ jobs:
           GITHUB_ACTION_CONFIG.AUTO_REVIEW: "true"
           GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "false"
           GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"
+          # v0.47.0 made tool errors fail the Action; keep the old green behaviour.
+          GITHUB_ACTION_CONFIG.FAIL_ON_TOOL_ERRORS: "false"
