@@ -111,6 +111,9 @@
   "overrides": {
     "html-to-text": "10.0.1",
     "sharp": "^0.35.5",
-    "postcss": "^8.5.18"
+    "postcss": "^8.5.18",
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "^6.1.6"
+    }
   }
 }
