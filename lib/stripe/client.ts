@@ -5,7 +5,7 @@ let cached: Stripe | null = null
 /**
  * Singleton Stripe client. Throws if STRIPE_SECRET_KEY is unset so misconfig
  * fails loudly at call time rather than silently no-opping. The API version is
- * pinned by the installed SDK (stripe@22), which is the recommended stable
+ * pinned by the installed SDK (stripe@23), which is the recommended stable
  * default: do not hardcode a version string that can drift from the SDK types.
  */
 export function getStripe(): Stripe {

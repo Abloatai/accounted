@@ -42,6 +42,7 @@ export function FirstInvoiceLogoPrompt({
           <DialogDescription>
             Din första faktura är skapad. Vill du ladda upp en logotyp som
             visas i sidhuvudet? Du kan ändra den senare i{' '}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load of settings, not the intercepted settings modal */}
             <a
               href="/settings/company"
               className="underline underline-offset-2 hover:text-foreground"

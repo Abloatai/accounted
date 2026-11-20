@@ -6,7 +6,7 @@
  *   settings check -> quiet hours -> duplicate check -> send -> log -> cleanup
  */
 
-import webpush from 'web-push'
+import * as webpush from 'web-push'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { NotificationSettings, NotificationType } from '@/types'
 
