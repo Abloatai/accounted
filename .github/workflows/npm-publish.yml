@@ -117,10 +117,10 @@ jobs:
           # the npm token, and that never touches the checkout.
           persist-credentials: false
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         if: steps.select.outputs.run == 'true'
         with:
-          node-version: 22
+          node-version: 26
           # Writes an .npmrc that reads the auth token from NODE_AUTH_TOKEN.
           registry-url: https://registry.npmjs.org
 

@@ -22,7 +22,13 @@ interface Recorded {
  * table so both shapes resolve.
  */
 function makeSupabase(opts: {
-  conv?: { id: string; user_id: string; company_id: string; intent_id: string } | null
+  conv?: {
+    id: string
+    user_id: string
+    company_id: string
+    intent_id: string
+    context_ref?: string | null
+  } | null
   newId?: string
   msgInsertError?: unknown
 } = {}) {
@@ -72,7 +78,12 @@ describe('resolveChatConversation', () => {
       '  Hur bokför jag en lunch med en kund?  ',
       'report:vat:2026-07',
     )
-    expect(res).toEqual({ ok: true, conversationId: 'conv-new', created: true })
+    expect(res).toEqual({
+      ok: true,
+      conversationId: 'conv-new',
+      created: true,
+      contextRef: 'report:vat:2026-07',
+    })
     const insert = rec.inserts.find((i) => i.table === 'agent_conversations')!
     expect(insert.payload).toMatchObject({
       company_id: 'company-1',
@@ -90,10 +101,16 @@ describe('resolveChatConversation', () => {
         user_id: 'user-1',
         company_id: 'company-1',
         intent_id: CHAT_INTENT_ID,
+        context_ref: 'report:vat:2026-07',
       },
     })
     const res = await resolveChatConversation(supabase, 'user-1', 'company-1', 'conv-9', 'q')
-    expect(res).toEqual({ ok: true, conversationId: 'conv-9', created: false })
+    expect(res).toEqual({
+      ok: true,
+      conversationId: 'conv-9',
+      created: false,
+      contextRef: 'report:vat:2026-07',
+    })
   })
 
   it("refuses a colleague's thread (not_found, not 403)", async () => {
@@ -136,6 +153,22 @@ describe('resolveChatConversation', () => {
     const insert = rec.inserts.find((i) => i.table === 'agent_conversations')!
     expect(insert.payload.title).toBe('Fråga din assistent')
     expect(insert.payload.context_ref).toBeNull()
+  })
+
+  it('can insert a caller-selected id so coordination precedes persistence', async () => {
+    const { supabase, rec } = makeSupabase({ newId: 'conv-selected' })
+    await resolveChatConversation(
+      supabase,
+      'user-1',
+      'company-1',
+      null,
+      'Fråga',
+      null,
+      'conv-selected',
+    )
+
+    const insert = rec.inserts.find((item) => item.table === 'agent_conversations')!
+    expect(insert.payload.id).toBe('conv-selected')
   })
 })
 

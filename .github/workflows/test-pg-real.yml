@@ -25,9 +25,9 @@ jobs:
           # Full history so the merge-base with the PR base branch exists.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
+          node-version: 26
       - name: Require pg-real coverage for trigger/RPC/RLS migrations
         env:
           PG_GATE_BASE: origin/${{ github.base_ref }}
@@ -170,9 +170,9 @@ jobs:
       # the repo quota) accumulated in a single day. If this is ever worth
       # caching again, it has to be actions/cache/save on main plus
       # actions/cache/restore here, which is the only shape that gets hits.
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
+          node-version: 26
 
       - run: npm ci
 
@@ -235,9 +235,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 22
+          node-version: 26
 
       - run: npm ci
 

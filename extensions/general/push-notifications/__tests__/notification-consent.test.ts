@@ -19,10 +19,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  */
 
 vi.mock('web-push', () => ({
-  default: {
-    setVapidDetails: vi.fn(),
-    sendNotification: vi.fn().mockResolvedValue(undefined),
-  },
+  setVapidDetails: vi.fn(),
+  sendNotification: vi.fn().mockResolvedValue(undefined),
 }))
 
 const USER_ID = '11111111-1111-4111-8111-111111111111'
@@ -174,7 +172,7 @@ beforeAll(async () => {
   sendTaxDeadlineNotifications = scheduler.sendTaxDeadlineNotifications
   sendInvoiceNotifications = scheduler.sendInvoiceNotifications
   sendMissingUnderlagNotifications = scheduler.sendMissingUnderlagNotifications
-  webpushSend = vi.mocked((await import('web-push')).default.sendNotification) as unknown as Mock
+  webpushSend = vi.mocked((await import('web-push')).sendNotification) as unknown as Mock
 })
 
 beforeEach(() => {

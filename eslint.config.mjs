@@ -27,6 +27,10 @@ const eslintConfig = defineConfig([
       "react-hooks/static-components": "warn",
       "react-hooks/purity": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
+      // 7.1 reports every compiler error per component and validates refs more
+      // strictly, so these two newly fire on the same legacy components.
+      "react-hooks/refs": "warn",
+      "react-hooks/immutability": "warn",
     },
   },
   // No raw console.* in lib/ or app/api/. Use createLogger from @/lib/logger

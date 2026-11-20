@@ -109,6 +109,12 @@ const GENERIC: Record<string, StructuredErrorEntry> = {
     message_sv: 'En konflikt uppstod. Ladda om sidan och försök igen.',
     message_en: 'Conflict.',
   },
+  AGENT_WORK_CLAIMED: {
+    httpStatus: 409,
+    message_sv: 'En annan assistent arbetar redan med samma underlag. Försök igen snart.',
+    message_en: 'Another agent is already working on the same target.',
+    retryable: true,
+  },
   RATE_LIMITED: {
     httpStatus: 429,
     message_sv: 'För många förfrågningar. Vänta en stund och försök igen.',
