@@ -11,14 +11,14 @@ and client lifecycle.
 
 ## Enable it
 
-1. Use Node.js 24 or newer and install dependencies with `npm ci`.
+1. Use Node.js 26 or newer and install dependencies with `npm ci`.
 2. Set `ABLO_API_KEY` to a secret key for the target Ablo project. The SDK uses
    Ablo's default base URL.
 3. Run `npm run ablo:push` to publish the row-free coordination schema.
 4. Set `ABLO_COORDINATION_ENABLED=true` on the Accounted server.
 
 When enabled, the invoke and ask routes claim their conversation plus any
-explicit context resource before context capture or model inference. The
+concrete record context before context capture or model inference. The
 categorize route claims its transaction. Every MCP tool declared as a write is
 dispatched through the same coordination boundary; read-only tools and explicit
 dry runs do not claim. Semantic identifiers make different operations on one
@@ -35,3 +35,7 @@ data clients use the Ablo SDK default service URL.
 The existing Accounted commit path still re-reads the transaction, stages a
 pending operation, and applies all bookkeeping invariants. No ledger data is
 stored in Ablo.
+
+Each HTTP request has a fresh participant identity, including resumed conversations.
+Only record contexts of the form `kind:UUID` add a resource claim; page labels
+such as `kpi:översikt`, `verifikation:new` and `inbox:bulk` do not.

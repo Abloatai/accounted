@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   coordinateAgentTurn,
   resourceIdForTurn,
+  resourceIdForContext,
   transactionIdForTurn,
 } from '../agent-turn'
 import type { AgentCoordinationDependencies } from '../contract'
@@ -9,7 +10,7 @@ import type { AgentCoordinationDependencies } from '../contract'
 const input = {
   intentId: 'transaction.categorization',
   intentArgs: { transaction_id: 'transaction-1' },
-  contextRef: 'transaction:transaction-from-context',
+  contextRef: 'transaction:11111111-1111-4111-8111-111111111111',
   conversationId: 'conversation-1',
   companyId: 'company-1',
   userId: 'user-1',
@@ -27,7 +28,7 @@ describe('transactionIdForTurn', () => {
   it('uses the stored context when a conversation is resumed', () => {
     expect(
       transactionIdForTurn({ ...input, intentArgs: null }),
-    ).toBe('transaction-from-context')
+    ).toBe('11111111-1111-4111-8111-111111111111')
   })
 
   it('does not coordinate unrelated intents', () => {
@@ -36,9 +37,9 @@ describe('transactionIdForTurn', () => {
 })
 
 describe('resourceIdForTurn', () => {
-  it('uses any persisted context reference', () => {
+  it('uses a concrete persisted record reference', () => {
     expect(resourceIdForTurn({ ...input, intentId: 'invoice.draft' })).toBe(
-      'transaction:transaction-from-context',
+      'transaction:11111111-1111-4111-8111-111111111111',
     )
   })
 
@@ -50,6 +51,13 @@ describe('resourceIdForTurn', () => {
         contextRef: null,
       }),
     ).toBe('supplier_invoice:supplier-invoice-1')
+  })
+})
+
+describe('resourceIdForContext', () => {
+  it.each(['kpi:översikt', 'bokslut:overview', 'verifikation:new', 'inbox:bulk', 'report:vat:2026-07', 'transaction:new'])('does not claim the page label %s', (contextRef) => {
+    expect(resourceIdForContext(contextRef)).toBeNull()
+    expect(resourceIdForTurn({ intentId: 'onboarding.intake', intentArgs: null, contextRef })).toBeNull()
   })
 })
 
@@ -82,14 +90,27 @@ describe('coordinateAgentTurn', () => {
         },
         {
           scope: 'resource',
-          id: 'transaction:transaction-from-context',
-          description: 'working on Accounted resource transaction:transaction-from-context',
+          id: 'transaction:11111111-1111-4111-8111-111111111111',
+          description: 'working on Accounted resource transaction:11111111-1111-4111-8111-111111111111',
         },
       ],
-      participantId: 'conversation-1',
+      participantId: expect.any(String),
       companyId: 'company-1',
       userId: 'user-1',
     })
+  })
+
+  it('gives overlapping requests distinct participants for the same conversation', async () => {
+    vi.stubEnv('ABLO_COORDINATION_ENABLED', 'true')
+    const participants = new Set<string>()
+    const lease = { release: vi.fn(async () => undefined) }
+    const dependencies = dependenciesWithClaim(vi.fn(async ({ participantId }) => {
+      if (participants.size && !participants.has(participantId)) return null
+      participants.add(participantId)
+      return lease
+    }))
+    const results = await Promise.all([coordinateAgentTurn(input, dependencies), coordinateAgentTurn(input, dependencies)])
+    expect(results.map(result => result.outcome)).toEqual(['acquired', 'contended'])
   })
 
   it('reports contention without starting duplicate work', async () => {

@@ -22,6 +22,7 @@ import {
   AgentCoordinationUnavailableError,
   coordinateAgentWork,
   releaseAgentWorkLease,
+  resourceIdForContext,
   type AgentWorkCoordination,
   type AgentWorkTarget,
 } from '@/lib/agent/coordination'
@@ -160,7 +161,7 @@ export async function POST(request: Request): Promise<Response> {
   if (newConversationId) {
     const admission = await admitAskWork({
       targets: targetsForAsk(newConversationId, parsed.data.context_ref),
-      participantId: newConversationId,
+      participantId: crypto.randomUUID(),
       companyId,
       userId: user.id,
     })
@@ -186,7 +187,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!coordination) {
       const admission = await admitAskWork({
         targets: targetsForAsk(conversationId, resolved.contextRef),
-        participantId: conversationId,
+        participantId: crypto.randomUUID(),
         companyId,
         userId: user.id,
       })
@@ -245,11 +246,12 @@ function targetsForAsk(
       description: `answering Accounted conversation ${conversationId}`,
     })
   }
-  if (contextRef) {
+  const resourceId = resourceIdForContext(contextRef)
+  if (resourceId) {
     targets.push({
       scope: 'resource',
-      id: contextRef,
-      description: `answering about Accounted resource ${contextRef}`,
+      id: resourceId,
+      description: `answering about Accounted resource ${resourceId}`,
     })
   }
   return targets

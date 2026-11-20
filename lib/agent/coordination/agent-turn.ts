@@ -32,7 +32,7 @@ export async function coordinateAgentTurn(
   return coordinateAgentWork(
     {
       targets,
-      participantId: input.conversationId,
+      participantId: crypto.randomUUID(),
       companyId: input.companyId,
       userId: input.userId,
     },
@@ -43,7 +43,8 @@ export async function coordinateAgentTurn(
 export function resourceIdForTurn(
   input: Pick<AgentTurnCoordinationInput, 'intentId' | 'intentArgs' | 'contextRef'>,
 ): string | null {
-  if (input.contextRef) return input.contextRef
+  const contextResource = resourceIdForContext(input.contextRef)
+  if (contextResource) return contextResource
 
   const transactionId = transactionIdForTurn(input)
   if (transactionId) return `transaction:${transactionId}`
@@ -60,6 +61,12 @@ export function resourceIdForTurn(
   return null
 }
 
+export function resourceIdForContext(contextRef: string | null | undefined): string | null {
+  return contextRef && /^[a-z_]+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contextRef)
+    ? contextRef
+    : null
+}
+
 export function transactionIdForTurn(
   input: Pick<AgentTurnCoordinationInput, 'intentId' | 'intentArgs' | 'contextRef'>,
 ): string | null {
@@ -68,8 +75,9 @@ export function transactionIdForTurn(
   const fromArgs = input.intentArgs?.transaction_id
   if (typeof fromArgs === 'string' && fromArgs.length > 0) return fromArgs
 
-  if (input.contextRef?.startsWith(TRANSACTION_CONTEXT_PREFIX)) {
-    const fromContext = input.contextRef.slice(TRANSACTION_CONTEXT_PREFIX.length)
+  const contextResource = resourceIdForContext(input.contextRef)
+  if (contextResource?.startsWith(TRANSACTION_CONTEXT_PREFIX)) {
+    const fromContext = contextResource.slice(TRANSACTION_CONTEXT_PREFIX.length)
     return fromContext.length > 0 ? fromContext : null
   }
 
