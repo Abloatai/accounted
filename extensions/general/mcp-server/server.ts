@@ -190,6 +190,7 @@ import {
   resolveMcpCompanyContext,
 } from './company-routing'
 import { findUnknownArgKeys, listArgKeys, shortestExampleFor } from './arg-guard'
+import { runCoordinatedToolCall } from '@/lib/agent/coordination'
 import { findSupplierCandidates, type SupplierRow } from './supplier-candidates'
 import {
   matchSupplierByIdentity,
@@ -22040,6 +22041,18 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
       // mcp.next_hint_followed when the agent's behaviour matches the hint.
       checkAndEmitNextHintFollowed(sessionId, toolName, actor, userId, effectiveCompanyId)
 
+      const executeToolCall = () => runCoordinatedToolCall(
+        {
+          toolName,
+          args: toolArgs,
+          isWrite: tool.annotations?.readOnlyHint === false,
+          participantId: `mcp:${crypto.randomUUID()}`,
+          companyId: tenantId || `user:${userId}`,
+          userId,
+        },
+        () => tool.execute(toolArgs, tenantId, userId, supabase, actor),
+      )
+
       // ── Tasks extension (io.modelcontextprotocol/tasks) ──
       // Long-running tools return a durable handle immediately to a client
       // that declared the extension; the work completes after the response
@@ -22056,7 +22069,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
         const taskStartedAt = Date.now()
         emitAfterResponse(async () => {
           try {
-            const rawResult = await tool.execute(toolArgs, tenantId, userId, supabase, actor)
+            const rawResult = await executeToolCall()
             const canonicalResult = effectiveCompanyId
               ? addCompanyToTopLevelNext(rawResult, effectiveCompanyId)
               : rawResult
@@ -22136,7 +22149,7 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
           (toolArgs as Record<string, unknown>).__keyScopes = keyScopes
           ;(toolArgs as Record<string, unknown>).__toolNamespace = toolNamespace
         }
-        const rawResult = await tool.execute(toolArgs, tenantId, userId, supabase, actor)
+        const rawResult = await executeToolCall()
         const canonicalResult = effectiveCompanyId
           ? addCompanyToTopLevelNext(rawResult, effectiveCompanyId)
           : rawResult

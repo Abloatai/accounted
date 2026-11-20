@@ -27,7 +27,8 @@
     "test": "vitest run --project unit",
     "test:pg": "vitest run --project pg-real",
     "tools:pg:reset": "bash scripts/tool-pg/reset.sh",
-    "test:tools": "TOOL_PG_REST_URL=${TOOL_PG_REST_URL:-http://127.0.0.1:54330} vitest run --project tool-pg"
+    "test:tools": "TOOL_PG_REST_URL=${TOOL_PG_REST_URL:-http://127.0.0.1:54330} vitest run --project tool-pg",
+    "ablo:push": "ablo push --schema lib/agent/coordination/ablo/schema.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "3.0.93",
@@ -85,7 +86,8 @@
     "tailwind-merge": "^3.7.0",
     "web-push": "^4.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@abloatai/ablo": "0.61.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
@@ -105,7 +107,8 @@
     "tailwindcss": "^4.3.5",
     "tsx": "4.23.15",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.1"
+    "vitest": "^5.1.1",
+    "@abloatai/cli": "0.61.0"
   },
   "overrides": {
     "html-to-text": "10.0.1",
@@ -114,5 +117,8 @@
     "@tailwindcss/typography": {
       "postcss-selector-parser": "^6.1.6"
     }
+  },
+  "engines": {
+    "node": ">=26.0.0"
   }
 }

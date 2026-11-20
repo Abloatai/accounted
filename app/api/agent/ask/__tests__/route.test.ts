@@ -29,6 +29,18 @@ vi.mock('@/lib/agent/ask/persist', () => ({
   persistUserTurn: (...a: unknown[]) => persistUser(...a),
   persistAssistantTurn: (...a: unknown[]) => persistAssistant(...a),
 }))
+const coordinateAgentWork = vi.fn()
+const releaseAgentWorkLease = vi.fn()
+vi.mock('@/lib/agent/coordination', async () => {
+  const { resourceIdForContext } = await import('@/lib/agent/coordination/agent-turn')
+  class AgentCoordinationUnavailableError extends Error {}
+  return {
+    AgentCoordinationUnavailableError,
+    resourceIdForContext,
+    coordinateAgentWork: (...args: unknown[]) => coordinateAgentWork(...args),
+    releaseAgentWorkLease: (...args: unknown[]) => releaseAgentWorkLease(...args),
+  }
+})
 
 import { POST, maxDuration } from '../route'
 import { EmptyModelAnswerError } from '@/lib/agent/ask/errors'
@@ -47,6 +59,8 @@ beforeEach(() => {
   loadHistory.mockResolvedValue([])
   persistUser.mockResolvedValue(undefined)
   persistAssistant.mockResolvedValue(undefined)
+  coordinateAgentWork.mockResolvedValue({ outcome: 'disabled' })
+  releaseAgentWorkLease.mockResolvedValue(undefined)
 })
 
 const body = (o: Record<string, unknown> = {}) => ({ question: 'Hur gick juli?', ...o })
@@ -129,6 +143,7 @@ describe('POST /api/agent/ask', () => {
         undefined,
         'Hur gick juli?',
         'report:vat:2026-07',
+        expect.any(String),
       )
       expect(persistUser).toHaveBeenCalledWith(supabase, 'conv-9', 'Hur gick juli?')
       expect(answer).toHaveBeenCalled()
@@ -184,7 +199,49 @@ describe('POST /api/agent/ask', () => {
         '11111111-1111-4111-8111-111111111111',
         'Hur gick juli?',
         undefined,
+        undefined,
       )
+    })
+
+    it.each([false, true])('uses fresh request participants when resumed=%s', async (resumed) => {
+      const conversationId = '11111111-1111-4111-8111-111111111111'
+      resolveConv.mockResolvedValue({ ok: true, conversationId, created: !resumed, contextRef: 'kpi:översikt' })
+      for (let i = 0; i < 2; i++) {
+        const res = await POST(createMockRequest('/x', { method: 'POST', body: body({ persist: true, context_ref: 'kpi:översikt', ...(resumed ? { conversation_id: conversationId } : {}) }) }))
+        expect(res.status).toBe(200)
+      }
+      const requests = coordinateAgentWork.mock.calls.map(([request]) => request)
+      expect(new Set(requests.map(request => request.participantId)).size).toBe(2)
+      for (const request of requests) {
+        expect(request.participantId).not.toBe(request.targets[0].id)
+        expect(request.targets.map((target: {scope: string}) => target.scope)).toEqual(['conversation'])
+      }
+    })
+
+    it('returns 409 before creating a fresh thread when its resource is claimed', async () => {
+      coordinateAgentWork.mockResolvedValue({ outcome: 'contended' })
+      const res = await POST(
+        createMockRequest('/x', {
+          method: 'POST',
+          body: body({ persist: true, context_ref: 'invoice:11111111-1111-4111-8111-111111111111' }),
+        }),
+      )
+
+      expect(res.status).toBe(409)
+      expect(resolveConv).not.toHaveBeenCalled()
+      expect(answer).not.toHaveBeenCalled()
+    })
+
+    it('releases coordination after a persisted answer', async () => {
+      const coordination = { outcome: 'acquired', lease: { release: vi.fn() } }
+      coordinateAgentWork.mockResolvedValue(coordination)
+
+      const res = await POST(
+        createMockRequest('/x', { method: 'POST', body: body({ persist: true }) }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(releaseAgentWorkLease).toHaveBeenCalledWith(coordination)
     })
 
     it("404s on a conversation that isn't the user's, without answering or persisting", async () => {
